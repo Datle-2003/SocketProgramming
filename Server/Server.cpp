@@ -1,9 +1,10 @@
 #include "Server.h"
 
 const int DEFAULT_PORT = 8080;
-const char* DEFALUT_IPADDRESS = "172.20.46.145";
+const char* DEFAULT_IPADDRESS = "172.20.46.145";
 const int BUFFER_LENGTH = 2048;
 char Buffer[BUFFER_LENGTH];
+
 
 
 Server::Server(int Port, char* IPAddress)
@@ -19,8 +20,8 @@ Server::Server(int Port, char* IPAddress)
 Server::Server()
 {
     _Port = DEFAULT_PORT;
-    _IPAddress = new char[strlen(DEFALUT_IPADDRESS) + 1];
-    strcpy_s(_IPAddress, strlen(DEFALUT_IPADDRESS) + 1, DEFALUT_IPADDRESS);
+    _IPAddress = new char[strlen(DEFAULT_IPADDRESS) + 1];
+    strcpy_s(_IPAddress, strlen(DEFAULT_IPADDRESS) + 1, DEFAULT_IPADDRESS);
     // set buffer to all zeros
     memset(Buffer, 0, BUFFER_LENGTH);
     _ServerSocket = INVALID_SOCKET;
