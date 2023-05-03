@@ -2,11 +2,8 @@
 
 const int DEFAULT_PORT = 8080;
 const char* DEFAULT_IPADDRESS = "172.20.46.145";
-const int BUFFER_LENGTH = 2048;
+
 char Buffer[BUFFER_LENGTH];
-
-
-
 Server::Server(int Port, char* IPAddress)
 {
     _Port = Port;
@@ -100,10 +97,9 @@ SOCKET Server::acceptConnect()
     return clientSocket;
 }
 
-int Server::sendData(SOCKET clientSocket, const char* data)
+int Server::sendData(SOCKET clientSocket, const char* data, int length)
 {
-    int dataLength = strlen(data);
-    int bytesSent = ::send(clientSocket, data, dataLength, 0);
+    int bytesSent = send(clientSocket, data, length, 0);
     if (bytesSent == SOCKET_ERROR)
     {
         std::cerr << "Error sending data to client: " << WSAGetLastError() << '\n';
@@ -111,9 +107,11 @@ int Server::sendData(SOCKET clientSocket, const char* data)
     }
     return bytesSent;
 }
-int Server::receiveData(SOCKET clientSocket, char* buffer, int length)
+
+int Server::receiveData(SOCKET clientSocket)
 {
-    int bytesReceived = ::recv(clientSocket, buffer, length, 0);
+    memset(Buffer, 0, BUFFER_LENGTH);
+    int bytesReceived = recv(clientSocket, Buffer, BUFFER_LENGTH, 0);
     if (bytesReceived == SOCKET_ERROR)
     {
         std::cerr << "Error receiving data from client: " << WSAGetLastError() << '\n';
@@ -126,8 +124,12 @@ int Server::catchKeyPress(SOCKET clientSocket)
 {
     int result = 0;
     bool stop = false;
+    cout << 1;
     while (!stop)
     {
+        cout << "start";
+        cin.clear();
+       // cin.ignore(1000);
         // Check if a key has been pressed
         if (_kbhit())
         {
@@ -159,7 +161,7 @@ int Server::catchKeyPress(SOCKET clientSocket)
         }
         else
         {
-            buffer[result] = '\0';
+            //buffer[result] = '\0';
             if (strcmp(buffer, "stop") == 0)
             {
                 std::cout << "Received 'stop' message from client" << std::endl;
@@ -209,7 +211,7 @@ string Server::EnumerateApps(HKEY hKeyRoot, LPCSTR subKey)
     return appNames;
 }
 
-/*
+
 // Đang bị lỗi
 int Server::startApp(const char* name)
 {
@@ -226,10 +228,28 @@ int Server::startApp(const char* name)
     }
     return 0;
 }
-*/
 
-void Server::ListRunningProcesses()
+
+std::string wideCharToString(const WCHAR* wstr)
 {
+    int len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
+    std::string str(len, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wstr, -1, &str[0], len, nullptr, nullptr);
+    return str;
+}
+
+string convert(WCHAR* t)
+{
+    char ch[260];
+    char DefChar = ' ';
+    WideCharToMultiByte(CP_ACP, 0, t, -1, ch, 260, &DefChar, NULL);
+    string ss(ch);
+    return ss;
+}
+
+string Server::ListRunningProcesses()
+{
+    unordered_set<string> s;
     HANDLE hProcessSnap;
     PROCESSENTRY32 pe32;
     hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -237,7 +257,7 @@ void Server::ListRunningProcesses()
     if (hProcessSnap == INVALID_HANDLE_VALUE)
     {
         std::cerr << "Failed to create snapshot" << std::endl;
-        return;
+        return "";
     }
 
     pe32.dwSize = sizeof(PROCESSENTRY32);
@@ -246,20 +266,28 @@ void Server::ListRunningProcesses()
     {
         std::cerr << "Failed to get first process" << std::endl;
         CloseHandle(hProcessSnap);
-        return;
+        return "";
     }
 
     do
     {
-        std::cout << "Process: " << pe32.szExeFile << std::endl;
+        string ss = convert(pe32.szExeFile);
+        s.insert(ss);
+       
     } while (Process32Next(hProcessSnap, &pe32));
 
     CloseHandle(hProcessSnap);
+
+    string processNames;
+    for (const auto& process : s)
+        processNames += process + '\n';
+    return processNames;
 }
 
-int Server::StopProcess(std::string ProcessName)
+int Server::StopProcess(const char* ProcessName)
 {
-    std::string command = "taskkill /F /IM " + ProcessName;
+    std::string process(ProcessName);
+    std::string command = "taskkill /F /IM " + process;
     int result = system(command.c_str());
 
     if (result == 1)
@@ -271,7 +299,8 @@ int Server::StopProcess(std::string ProcessName)
     return 0;
 }
 
-void Server::TakeScreenshot(string fileName) {
+void Server::TakeScreenshot(string fileName)
+{
     fileName = fileName + ".bmp";
     HDC hdcScreen = GetDC(NULL);
     HDC hdcMem = CreateCompatibleDC(hdcScreen);
@@ -312,7 +341,7 @@ void Server::TakeScreenshot(string fileName) {
     char* lpbitmap = new char[dwBmpSize];
     GetDIBits(hdcScreen, hBitmap, 0, height, lpbitmap, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
 
-    std::ofstream file(fileName, std::ios::out | std::ios::binary);
+    std::ofstream file(fileName, std::ios::out | std::ios::binary | std::ios::app);
 
     file.write((char*)&bmfHeader, sizeof(BITMAPFILEHEADER));
     file.write((char*)&bi, sizeof(BITMAPINFOHEADER));

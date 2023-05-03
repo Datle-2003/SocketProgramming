@@ -5,6 +5,6 @@ int main() {
     C.InitWinsock();
     C.CreateSocket();
     C.ConnectToServer();
-    C.Communicate();
+    C.ControlServer();
     return 0;
 }

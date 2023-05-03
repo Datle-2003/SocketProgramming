@@ -82,7 +82,6 @@ int Client::ConnectToServer()
 
 int Client::SendToServer()
 {
-    cout << "Enter message to send to server:\n";
     cin.getline(Buffer, BUFFER_LENGTH);
 
     int sendResult = send(_ClientSocket, Buffer, strlen(Buffer), 0);
@@ -97,6 +96,7 @@ int Client::SendToServer()
 
 int Client::ReceiveFromServer()
 {
+    memset(Buffer, 0, BUFFER_LENGTH);
     int recvResult = recv(_ClientSocket, Buffer, BUFFER_LENGTH, 0);
     if (recvResult == SOCKET_ERROR)
     {
@@ -109,15 +109,90 @@ int Client::ReceiveFromServer()
         printf("Connection closed\n");
         return 1;
     }
-
-    printf("Received message: %s\n", Buffer);
+    std::cout << Buffer;
     return 0;
 }
 
-void Client::Communicate() {
-    do {
-        ReceiveFromServer();
-        SendToServer();
-    } while (strcmp(Buffer, "stop") != 0);
+int Client::receiveData()
+{
+    std::ofstream file("image.bmp", std::ios::binary | std::ios::app);
+    int receivedBytes = 0;
+    int result = 1;
+    while (result != 0)
+    {
+        int result = recv(_ClientSocket, Buffer, BUFFER_LENGTH, 0);
+        if (result == SOCKET_ERROR)
+        {
+            std::cerr << "Error receiving data from server: " << WSAGetLastError() << '\n';
+            return SOCKET_ERROR;
+        }
+        file.write(Buffer, result);
+    }
+    file.close();
+    return 0;
+
 }
 
+
+void Client::ControlServer()
+{
+    std::cout << "Press any button to start\n";
+    do
+    {
+        SendToServer();
+        if (strcmp(Buffer, "3") == 0) {
+            receiveData();
+        }
+        else if (strcmp(Buffer, "4") == 0) {
+            receiveKeyPresses();
+        }
+        else {
+            ReceiveFromServer();
+        }
+    } while (strcmp(Buffer, "stop") != 0);
+
+}
+
+void Client::receiveKeyPresses()
+{
+    cout << 1;
+    char buffer[BUFFER_LENGTH];
+    int result = 0;
+    while (true)
+    {
+        cout << "rev";
+        // Receive key press from server
+        result = recv(_ClientSocket, buffer, BUFFER_LENGTH, 0);
+        if (result == SOCKET_ERROR)
+        {
+            std::cerr << "Error receiving message from server: " << WSAGetLastError() << '\n';
+            return;
+        }
+        else if (result == 0)
+        {
+            std::cout << "Server disconnected" << '\n';
+            return;
+        }
+        else
+        {
+          //  buffer[result] = '\0';
+            std::cout << "Key pressed: " << buffer << '\n';
+        }
+
+        // Check if the user wants to stop receiving key presses
+        std::string input;
+        std::getline(std::cin, input);
+        if (input == "stop")
+        {
+            // Send stop message to server
+            result = send(_ClientSocket, "stop", input.size(), 0);
+            if (result == SOCKET_ERROR)
+            {
+                std::cerr << "Error sending message to server: " << WSAGetLastError() << '\n';
+                return;
+            }
+            std::cout << "Sent 'stop' message to server" << '\n';
+            return;
+        }
+    }
+}

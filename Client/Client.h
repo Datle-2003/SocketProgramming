@@ -4,9 +4,13 @@
 #include <WinSock2.h>
 #include <iostream>
 #include <cstring>
+#include <fstream>
+#include <vector>
+#include <string>
 
 using std::cin;
 using std::cout;
+using std::vector;
 
 
 class Client
@@ -25,7 +29,9 @@ public:
     int ConnectToServer();
     int SendToServer();
     int ReceiveFromServer();
-    void Communicate();
+    int receiveData();
+    void ControlServer();
+    void receiveKeyPresses();
 };
 
 #endif
