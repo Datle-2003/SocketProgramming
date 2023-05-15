@@ -168,7 +168,6 @@ void Client::catchKeyInput()
         }
         std::string str_ch = std::to_string(ch);
         const char* char_num = str_ch.c_str();
-        //std::cout << char_num << '\n';
         int bytes_sent = send(_ClientSocket, char_num, str_ch.length(), 0);
         if (bytes_sent < 0) {
             std::cerr << "Error sending data" << std::endl;
@@ -176,3 +175,5 @@ void Client::catchKeyInput()
         }
     }
 }
+
+

@@ -131,14 +131,14 @@ int Server::receiveData(SOCKET clientSocket)
 
 void Server::sendInvalidChoiceMessage(SOCKET &Client)
 {
-    const char *invalidChoiceMessage = "Invalid choice, please try again\n";
+    const char* invalidChoiceMessage = "Invalid choice, please try again\n";
 
     sendData(Client, invalidChoiceMessage, strlen(invalidChoiceMessage));
 }
 
-void Server::sendExitMessage(SOCKET &Client)
+void Server::sendExitMessage(SOCKET& Client)
 {
-    const char *exitMessage = "Exited\n";
+    const char* exitMessage = "Exited\n";
     sendData(Client, exitMessage, strlen(exitMessage));
 }
 
@@ -156,8 +156,7 @@ void Server::processEnumerateAppsOption(SOCKET &Client)
     {
         sendData(Client, appMenu, strlen(appMenu));
         receiveData(Client);
-        if (strcmp(Buffer, "0") == 0)
-        {
+        if (strcmp(Buffer, "0") == 0) {
             sendExitMessage(Client);
             break;
         }
@@ -191,14 +190,13 @@ void Server::processEnumerateProcessesOption(SOCKET &Client)
         sendData(Client, processMenu, strlen(processMenu));
         receiveData(Client);
 
-        if (strcmp(Buffer, "0") == 0)
-        {
+        if (strcmp(Buffer, "0") == 0) {
             sendExitMessage(Client);
             break;
         }
         else if (strcmp(Buffer, "1") == 0)
         {
-            std::string processesName = enumerateRunningProcesses();
+            std::string processesName = enumerateRunningProcesses() ;
             const char *processes = processesName.c_str();
             sendData(Client, processes, strlen(processes));
         }
@@ -244,6 +242,7 @@ void Server::processTakeScreenshotOption(SOCKET &Client)
         bytesSent += bytesToSend;
     }
     file.close();
+    
 }
 
 void Server::processCatchKeyPressOption(SOCKET &Client)
@@ -267,7 +266,7 @@ void Server::traversingDirectoryTree(SOCKET &Client)
                               "  help                             Show this help message\n"
                               "  exit                             Quit the program\n\n";
     sendData(Client, helpMessage, strlen(helpMessage));
-
+    
     while (true)
     {
         std::string currentPath = fs::current_path().string();
@@ -276,22 +275,17 @@ void Server::traversingDirectoryTree(SOCKET &Client)
         receiveData(Client);
         std::string command(Buffer);
         std::string sendMessage = "";
-
+        
         if (command == "exit")
             break;
 
-        else if (command == "help")
-        {
+        else if (command == "help") {
             sendMessage = (std::string)helpMessage;
             sendData(Client, sendMessage.c_str(), sendMessage.length());
         }
-        else if (command == "ls")
-        {
+        else if (command == "ls") {
             sendMessage = list();
-            if (sendMessage == "")
-            {
-                sendMessage = "\n";
-            }
+            if (sendMessage == "") { sendMessage = "\n"; }
             sendData(Client, sendMessage.c_str(), sendMessage.length());
         }
 
@@ -300,6 +294,7 @@ void Server::traversingDirectoryTree(SOCKET &Client)
             std::string path = command.substr(3);
             sendMessage = changeDirectory(path);
             currentPath = fs::current_path().string();
+           
         }
         else if (command.substr(0, 3) == "mv ")
         {
@@ -338,6 +333,7 @@ void Server::traversingDirectoryTree(SOCKET &Client)
             sendMessage = "Error: invalid command\n";
             sendData(Client, sendMessage.c_str(), sendMessage.length());
         }
+        
     }
 }
 
@@ -351,8 +347,7 @@ void Server::processOptions(SOCKET &Client)
         receiveData(Client);
 
         // option 0: exit
-        if (strcmp(Buffer, "0") == 0)
-        {
+        if (strcmp(Buffer, "0") == 0) {
             processExitOption(Client);
             break;
         }
@@ -365,10 +360,9 @@ void Server::processOptions(SOCKET &Client)
         else if (strcmp(Buffer, "2") == 0)
             processEnumerateProcessesOption(Client);
         // option 3: take a screenshot
-        else if (strcmp(Buffer, "3") == 0)
-        {
-            processTakeScreenshotOption(Client);
-        }
+        else if (strcmp(Buffer, "3") == 0) {
+         processTakeScreenshotOption(Client);
+     }
         // option 4: catch key press
         else if (strcmp(Buffer, "4") == 0)
             processCatchKeyPressOption(Client);
@@ -392,16 +386,19 @@ int Server::catchKeyPress(SOCKET clientSocket)
         {
             // Convert the received message back to the key code
             int keyCode = atoi(Buffer);
-            // cout << keyCode;
-            //  Send the key code to the input queue of the server
-            INPUT input = {0};
-            input.type = INPUT_KEYBOARD;
-            input.ki.wScan = MapVirtualKey(keyCode, MAPVK_VK_TO_VSC);
-            input.ki.time = 0;
-            input.ki.dwExtraInfo = 0;
-            input.ki.wVk = keyCode;
-            input.ki.dwFlags = 0;
-            SendInput(1, &input, sizeof(INPUT));
+            char asciiCode = static_cast<char>(keyCode);
+            BYTE vk = VkKeyScan(asciiCode); // Chuyển đổi ký tự ASCII thành mã Virtual Key
+            if (vk != -1)
+            {
+                INPUT input = { 0 };
+                input.type = INPUT_KEYBOARD;
+                input.ki.wVk = static_cast<WORD>(vk);
+                input.ki.dwFlags = 0;
+
+                UINT result = SendInput(1, &input, sizeof(INPUT));
+            }
+
+
         }
     }
 
@@ -462,7 +459,7 @@ std::string Server::startProcess(const char *name)
         CloseHandle(pi.hProcess);
         return "Start process successfully\n";
     }
-    return "Failed to start process: " + processName + '\n';
+    return  "Failed to start process: " + processName + '\n';
 }
 
 std::string wcharToString(WCHAR *t)
@@ -590,7 +587,7 @@ std::string Server::changeDirectory(const std::string &new_path)
     // Kiểm tra xem đường dẫn mới có tồn tại hay không
     if (!fs::exists(new_path))
     {
-        return "Error: directory '" + new_path + "' does not exist\n";
+        return  "Error: directory '" + new_path + "' does not exist\n";
     }
 
     // Thiết lập đường dẫn hiện tại
