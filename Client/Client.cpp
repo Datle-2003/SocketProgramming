@@ -1,25 +1,24 @@
 #include "Client.h"
 
-const int DEFALUT_PORT = 8080;
-const char* DEFALUT_IPADDRESS = "172.20.46.145";
-const int BUFFER_LENGTH = 2048;
 char Buffer[BUFFER_LENGTH];
+char Img_Buffer[IMAGE_LENGTH];
+const int DEFAULT_PORT = 8080;
 
 Client::Client()
 {
     _ClientSocket = INVALID_SOCKET;
-    _Port = DEFALUT_PORT;
-    _ServerIPAddress = new char[strlen(DEFALUT_IPADDRESS) + 1];
-    strcpy_s(_ServerIPAddress, strlen(DEFALUT_IPADDRESS) + 1, DEFALUT_IPADDRESS);
+    _serverAddr.sin_family = AF_INET;
+    _serverAddr.sin_port = htons(DEFAULT_PORT);
+    inet_pton(AF_INET, "127.0.0.1", &_serverAddr.sin_addr);
     memset(Buffer, 0, BUFFER_LENGTH);
 }
 
 Client::Client(int Port, const char* IPAddress)
 {
     _ClientSocket = INVALID_SOCKET;
-    _Port = Port;
-    _ServerIPAddress = new char[strlen(IPAddress) + 1];
-    strcpy_s(_ServerIPAddress, strlen(DEFALUT_IPADDRESS) + 1, IPAddress);
+    _serverAddr.sin_family = AF_INET;
+    _serverAddr.sin_port = htons(Port);
+    inet_pton(AF_INET, IPAddress, &_serverAddr.sin_addr);
     memset(Buffer, 0, BUFFER_LENGTH);
 }
 
@@ -27,10 +26,17 @@ Client::~Client()
 {
     closesocket(_ClientSocket);
     WSACleanup();
-    delete[] _ServerIPAddress;
 }
 
-int Client::InitWinsock()
+void Client::setServerAddress(int port, const char* IPAddress) {
+        _ClientSocket = INVALID_SOCKET;
+        _serverAddr.sin_family = AF_INET;
+        _serverAddr.sin_port = htons(port);
+        inet_pton(AF_INET, IPAddress, &_serverAddr.sin_addr);
+        memset(Buffer, 0, BUFFER_LENGTH);
+}
+
+int Client::initializeWinsock()
 {
     WSADATA wsaData; // wsaData: lưu trữ thông tin về phiên bản Winsock được sử dụng
     int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -46,7 +52,7 @@ int Client::InitWinsock()
     return 0;
 }
 
-int Client::CreateSocket()
+int Client::createSocket()
 {
     _ClientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     /*
@@ -62,17 +68,12 @@ int Client::CreateSocket()
     return 0;
 }
 
-int Client::ConnectToServer()
+int Client::connectToServer()
 {
-    sockaddr_in serverAddr; // store information about server
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(_Port); // Use the same port as the server
-    // htons(): convert port number from host byte order to network byte order
-    inet_pton(AF_INET, _ServerIPAddress, &serverAddr.sin_addr);
-    // inet_pton(): convert "127.0.0.1" (loopback) to binary format
-
+    initializeWinsock();
+    createSocket();
     // connect to server
-    if (connect(_ClientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+    if (connect(_ClientSocket, (sockaddr*)&_serverAddr, sizeof(_serverAddr)) == SOCKET_ERROR)
     {
         printf("Failed to connect: %d\n", WSAGetLastError());
         return 1;
@@ -80,9 +81,17 @@ int Client::ConnectToServer()
     return 0;
 }
 
-int Client::SendToServer()
+int Client::sendData()
 {
-    cin.getline(Buffer, BUFFER_LENGTH);
+    
+    while (1) {
+        std::cin.getline(Buffer, BUFFER_LENGTH);
+        if (strcmp(Buffer, "\0") != 0)
+            break;
+        else {
+            std::cout << "Empty choice, please try again\nEnter choice: ";
+        }
+    }
 
     int sendResult = send(_ClientSocket, Buffer, strlen(Buffer), 0);
     if (sendResult == SOCKET_ERROR)
@@ -94,9 +103,9 @@ int Client::SendToServer()
     return 0;
 }
 
-int Client::ReceiveFromServer()
+int Client::receiveData()
 {
-    memset(Buffer, 0, BUFFER_LENGTH);
+    clearBuffer();
     int recvResult = recv(_ClientSocket, Buffer, BUFFER_LENGTH, 0);
     if (recvResult == SOCKET_ERROR)
     {
@@ -113,86 +122,57 @@ int Client::ReceiveFromServer()
     return 0;
 }
 
-int Client::receiveData()
+int Client::receiveImage()
 {
-    std::ofstream file("image.bmp", std::ios::binary | std::ios::app);
-    int receivedBytes = 0;
-    int result = 1;
-    while (result != 0)
+    clearBuffer();
+    std::ofstream file("image.bmp", std::ios::binary | std::ios::out);
+    if (!file.is_open()) {
+        std::cerr << "Error creating BMP file: " << '\n';
+        return 1;
+    }
+    int result = IMAGE_LENGTH;
+    while (result == IMAGE_LENGTH)
     {
-        int result = recv(_ClientSocket, Buffer, BUFFER_LENGTH, 0);
+        result = recv(_ClientSocket, Img_Buffer, IMAGE_LENGTH, 0);
         if (result == SOCKET_ERROR)
         {
             std::cerr << "Error receiving data from server: " << WSAGetLastError() << '\n';
             return SOCKET_ERROR;
         }
-        file.write(Buffer, result);
+        if (result == 0) {
+            break; // End of data received
+        }
+        file.write(Img_Buffer, result);
     }
     file.close();
     return 0;
 
 }
 
-
-void Client::ControlServer()
-{
-    std::cout << "Press any button to start\n";
-    do
-    {
-        SendToServer();
-        if (strcmp(Buffer, "3") == 0) {
-            receiveData();
-        }
-        else if (strcmp(Buffer, "4") == 0) {
-            receiveKeyPresses();
-        }
-        else {
-            ReceiveFromServer();
-        }
-    } while (strcmp(Buffer, "stop") != 0);
-
+void Client::clearBuffer() {
+    memset(Buffer, 0, BUFFER_LENGTH);
 }
 
-void Client::receiveKeyPresses()
+void Client::catchKeyInput()
 {
-    cout << 1;
-    char buffer[BUFFER_LENGTH];
-    int result = 0;
-    while (true)
+   while (true)
     {
-        cout << "rev";
-        // Receive key press from server
-        result = recv(_ClientSocket, buffer, BUFFER_LENGTH, 0);
-        if (result == SOCKET_ERROR)
-        {
-            std::cerr << "Error receiving message from server: " << WSAGetLastError() << '\n';
-            return;
-        }
-        else if (result == 0)
-        {
-            std::cout << "Server disconnected" << '\n';
-            return;
-        }
-        else
-        {
-          //  buffer[result] = '\0';
-            std::cout << "Key pressed: " << buffer << '\n';
-        }
+        int ch = _getch();
 
-        // Check if the user wants to stop receiving key presses
-        std::string input;
-        std::getline(std::cin, input);
-        if (input == "stop")
+        // Exit if ESCAPE key is pressed
+        if (ch == VK_ESCAPE)
         {
-            // Send stop message to server
-            result = send(_ClientSocket, "stop", input.size(), 0);
-            if (result == SOCKET_ERROR)
-            {
-                std::cerr << "Error sending message to server: " << WSAGetLastError() << '\n';
-                return;
-            }
-            std::cout << "Sent 'stop' message to server" << '\n';
-            return;
+           // cout << "break";
+            send(_ClientSocket, "stop", 4, 0);
+           break;
+        }
+        std::string str_ch = std::to_string(ch);
+        const char* char_num = str_ch.c_str();
+        //std::cout << char_num << '\n';
+        int bytes_sent = send(_ClientSocket, char_num, str_ch.length(), 0);
+        if (bytes_sent < 0) {
+            std::cerr << "Error sending data" << std::endl;
+            break;
         }
     }
 }

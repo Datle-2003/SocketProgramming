@@ -4,34 +4,41 @@
 #include <WinSock2.h>
 #include <iostream>
 #include <cstring>
-#include <fstream>
 #include <vector>
 #include <string>
+#include <TlHelp32.h>
+#include <conio.h>
+#include <unordered_set>
+#include <fstream>
+#include <stdio.h>
 
-using std::cin;
-using std::cout;
-using std::vector;
 
+
+const int IMAGE_LENGTH = 2048;
+const int BUFFER_LENGTH = 10000;
+extern char Buffer[BUFFER_LENGTH];
 
 class Client
 {
 private:
     SOCKET _ClientSocket;
-    int _Port;
-    char* _ServerIPAddress;
+    sockaddr_in _serverAddr;
 
 public:
     Client();
     Client(int Port, const char* IPAddress);
     ~Client();
-    int InitWinsock();
-    int CreateSocket();
-    int ConnectToServer();
-    int SendToServer();
-    int ReceiveFromServer();
+
+    void setServerAddress(int, const char*);
+    int initializeWinsock();
+    int createSocket();
+    int connectToServer();
+    int sendData();
     int receiveData();
-    void ControlServer();
-    void receiveKeyPresses();
+    int receiveImage();
+    void catchKeyInput();
+    void clearBuffer();
 };
+
 
 #endif
